@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.Python
+
+# VS Code
+.vscode/
+
+# Runtime files
+flagged_for_learning/
+training_queue/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
