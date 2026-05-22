@@ -21,18 +21,33 @@ import base64
 import requests
 from fpdf import FPDF
 
+try:
+    from deep_translator import GoogleTranslator
+    HAS_TRANSLATOR = True
+except ImportError:
+    HAS_TRANSLATOR = False
+
+@st.cache_data(show_spinner=False)
+def T(text, target_lang_code="en"):
+    if target_lang_code == "en" or not text or not HAS_TRANSLATOR:
+        return text
+    try:
+        return GoogleTranslator(source='auto', target=target_lang_code).translate(str(text))
+    except:
+        return text
+
 # Breed detailed information for Encyclopedia
 BREED_INFO = {
-    "Bhadawari": {"Origin": "Uttar Pradesh & Madhya Pradesh", "Type": "Buffalo", "Yield": "800 - 1000 kg", "Fat": "Up to 13%", "Desc": "Known for high fat content in milk. Medium-sized body, copperish color."},
-    "Gir": {"Origin": "Gujarat", "Type": "Cattle", "Yield": "1500 - 2500 kg", "Fat": "4.5 - 5%", "Desc": "Renowned dairy breed, highly disease resistant. Prominent forehead and long, pendulous ears."},
-    "Jaffarabadi": {"Origin": "Gujarat", "Type": "Buffalo", "Yield": "1800 - 2700 kg", "Fat": "8 - 8.5%", "Desc": "One of the heaviest buffalo breeds. Horns are heavy and broad, drooping downwards."},
-    "Kankrej": {"Origin": "Gujarat & Rajasthan", "Type": "Cattle", "Yield": "1500 - 1800 kg", "Fat": "4.8%", "Desc": "Dual-purpose breed (milk and draught). Large, strong, with massive lyre-shaped horns."},
-    "Murrah": {"Origin": "Haryana & Punjab", "Type": "Buffalo", "Yield": "1500 - 2500 kg", "Fat": "7%", "Desc": "The most famous dairy buffalo in the world. Jet black color with tightly curled horns."},
-    "Nagpuri": {"Origin": "Maharashtra", "Type": "Buffalo", "Yield": "700 - 1200 kg", "Fat": "7 - 8%", "Desc": "Long, flat, sword-shaped horns. Used for both milk and draught power."},
-    "Ongole": {"Origin": "Andhra Pradesh", "Type": "Cattle", "Yield": "500 - 1000 kg", "Fat": "4 - 5%", "Desc": "Large, muscular, and disease-resistant. Known globally and used to develop the Brahman breed."},
-    "Red_Sindhi": {"Origin": "Sindh (Pakistan) & India", "Type": "Cattle", "Yield": "1500 - 2500 kg", "Fat": "4.5 - 5%", "Desc": "Excellent dairy breed, highly adaptable to different climates. Deep red color."},
-    "Sahiwal": {"Origin": "Punjab", "Type": "Cattle", "Yield": "2000 - 3000 kg", "Fat": "4.5%", "Desc": "Considered the best indigenous dairy breed. Reddish-brown color, highly tick-resistant."},
-    "Toda": {"Origin": "Tamil Nadu (Nilgiri Hills)", "Type": "Buffalo", "Yield": "500 - 800 kg", "Fat": "8%", "Desc": "Distinctive semi-wild breed kept by the Toda tribe. Thick hair coat and wide, bowed horns."}
+    "Bhadawari": {"Origin": "Uttar Pradesh & Madhya Pradesh", "Type": "Buffalo", "Yield": "800 - 1000 kg", "Fat": "Up to 13%", "Desc": "Known for high fat content in milk. Medium-sized body, copperish color.", "BaseWeight": 420, "BasePrice": 45000},
+    "Gir": {"Origin": "Gujarat", "Type": "Cattle", "Yield": "1500 - 2500 kg", "Fat": "4.5 - 5%", "Desc": "Renowned dairy breed, highly disease resistant. Prominent forehead and long, pendulous ears.", "BaseWeight": 385, "BasePrice": 50000},
+    "Jaffarabadi": {"Origin": "Gujarat", "Type": "Buffalo", "Yield": "1800 - 2700 kg", "Fat": "8 - 8.5%", "Desc": "One of the heaviest buffalo breeds. Horns are heavy and broad, drooping downwards.", "BaseWeight": 800, "BasePrice": 80000},
+    "Kankrej": {"Origin": "Gujarat & Rajasthan", "Type": "Cattle", "Yield": "1500 - 1800 kg", "Fat": "4.8%", "Desc": "Dual-purpose breed (milk and draught). Large, strong, with massive lyre-shaped horns.", "BaseWeight": 550, "BasePrice": 55000},
+    "Murrah": {"Origin": "Haryana & Punjab", "Type": "Buffalo", "Yield": "1500 - 2500 kg", "Fat": "7%", "Desc": "The most famous dairy buffalo in the world. Jet black color with tightly curled horns.", "BaseWeight": 650, "BasePrice": 90000},
+    "Nagpuri": {"Origin": "Maharashtra", "Type": "Buffalo", "Yield": "700 - 1200 kg", "Fat": "7 - 8%", "Desc": "Long, flat, sword-shaped horns. Used for both milk and draught power.", "BaseWeight": 400, "BasePrice": 40000},
+    "Ongole": {"Origin": "Andhra Pradesh", "Type": "Cattle", "Yield": "500 - 1000 kg", "Fat": "4 - 5%", "Desc": "Large, muscular, and disease-resistant. Known globally and used to develop the Brahman breed.", "BaseWeight": 450, "BasePrice": 60000},
+    "Red_Sindhi": {"Origin": "Sindh (Pakistan) & India", "Type": "Cattle", "Yield": "1500 - 2500 kg", "Fat": "4.5 - 5%", "Desc": "Excellent dairy breed, highly adaptable to different climates. Deep red color.", "BaseWeight": 350, "BasePrice": 45000},
+    "Sahiwal": {"Origin": "Punjab", "Type": "Cattle", "Yield": "2000 - 3000 kg", "Fat": "4.5%", "Desc": "Considered the best indigenous dairy breed. Reddish-brown color, highly tick-resistant.", "BaseWeight": 400, "BasePrice": 55000},
+    "Toda": {"Origin": "Tamil Nadu (Nilgiri Hills)", "Type": "Buffalo", "Yield": "500 - 800 kg", "Fat": "8%", "Desc": "Distinctive semi-wild breed kept by the Toda tribe. Thick hair coat and wide, bowed horns.", "BaseWeight": 380, "BasePrice": 35000}
 }
 
 def create_pdf_report(results_list, original_image):
@@ -230,10 +245,23 @@ def classify(img, user_location):
 # ==============================
 # UI CONFIG & THEME
 # ==============================
+LANGUAGES = {
+    "English": "en",
+    "Hindi": "hi",
+    "Telugu": "te",
+    "Gujarati": "gu",
+    "Marathi": "mr"
+}
+
 with st.sidebar:
-    app_mode = st.radio("Menu", ["Dashboard", "Analyzer", "Breed Encyclopedia", "Learning Lab", "About Project"])
+    selected_lang_name = st.selectbox("🌐 Language / भाषा", list(LANGUAGES.keys()))
+    lang_code = LANGUAGES[selected_lang_name]
+    
+    app_mode_options = [T("Dashboard", lang_code), T("Analyzer", lang_code), T("Breed Encyclopedia", lang_code), T("Learning Lab", lang_code), T("About Project", lang_code)]
+    app_mode = st.radio(T("Menu", lang_code), app_mode_options)
+    
     user_location = st.selectbox(
-        "Location",
+        T("Location", lang_code),
         ["Andhra Pradesh","Gujarat","Punjab","Haryana","Rajasthan","Maharashtra","Other"]
     )
 
@@ -429,32 +457,32 @@ st.markdown(css, unsafe_allow_html=True)
 # ==============================
 # DASHBOARD
 # ==============================
-if app_mode == "Dashboard":
-    st.markdown(f"<h1 style='color: {text_primary}; font-size: 3rem; font-weight: 800; margin-bottom: 0px;'>🐄 Bovine Intelligence System</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color: {text_secondary}; font-size: 1.1rem; margin-top: 5px; margin-bottom: 2rem;'>Advanced AI-powered detection and breed classification for Indian cattle and buffaloes.</p>", unsafe_allow_html=True)
+if app_mode == app_mode_options[0]:
+    st.markdown(f"<h1 style='color: {text_primary}; font-size: 3rem; font-weight: 800; margin-bottom: 0px;'>🐄 {T('Bovine Intelligence System', lang_code)}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: {text_secondary}; font-size: 1.1rem; margin-top: 5px; margin-bottom: 2rem;'>{T('Advanced AI-powered detection and breed classification for Indian cattle and buffaloes.', lang_code)}</p>", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">📸</h1><h3 style="color: {text_primary};">Detection</h3><p style="color: {text_secondary};">YOLOv8</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">📸</h1><h3 style="color: {text_primary};">{T("Detection", lang_code)}</h3><p style="color: {text_secondary};">YOLOv8</p></div>', unsafe_allow_html=True)
 
     with col2:
-        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">🧬</h1><h3 style="color: {text_primary};">10 Breeds</h3><p style="color: {text_secondary};">MobileNet AI</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">🧬</h1><h3 style="color: {text_primary};">10 {T("Breeds", lang_code)}</h3><p style="color: {text_secondary};">MobileNet AI</p></div>', unsafe_allow_html=True)
 
     with col3:
-        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">🔄</h1><h3 style="color: {text_primary};">Learning</h3><p style="color: {text_secondary};">User Feedback</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h1 style="margin:0;">🔄</h1><h3 style="color: {text_primary};">{T("Learning", lang_code)}</h3><p style="color: {text_secondary};">{T("User Feedback", lang_code)}</p></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     
     c1, c2 = st.columns([1.5, 1])
     with c1:
         st.markdown(f"""
-        <h3 style="color: {text_primary};">🚀 Getting Started</h3>
-        <p style="color: {text_secondary};">1. Navigate to the <b>Analyzer</b> tab.</p>
-        <p style="color: {text_secondary};">2. <b>Upload</b> an image or <b>Capture</b> a photo.</p>
-        <p style="color: {text_secondary};">3. The system detects and classifies the animals.</p>
-        <p style="color: {text_secondary};">4. Download a <b>PDF Report</b> of the results!</p>
-        <p style="color: {text_secondary};">5. Read more in the <b>Breed Encyclopedia</b>.</p>
+        <h3 style="color: {text_primary};">🚀 {T("Getting Started", lang_code)}</h3>
+        <p style="color: {text_secondary};">1. {T("Navigate to the", lang_code)} <b>{T("Analyzer", lang_code)}</b> {T("tab.", lang_code)}</p>
+        <p style="color: {text_secondary};">2. <b>{T("Upload", lang_code)}</b> {T("an image or", lang_code)} <b>{T("Capture", lang_code)}</b> {T("a photo.", lang_code)}</p>
+        <p style="color: {text_secondary};">3. {T("The system detects and classifies the animals.", lang_code)}</p>
+        <p style="color: {text_secondary};">4. {T("Download a", lang_code)} <b>{T("PDF Report", lang_code)}</b> {T("of the results!", lang_code)}</p>
+        <p style="color: {text_secondary};">5. {T("Read more in the", lang_code)} <b>{T("Breed Encyclopedia", lang_code)}</b>.</p>
         """, unsafe_allow_html=True)
         
     with c2:
@@ -472,14 +500,14 @@ if app_mode == "Dashboard":
             border: 2px solid {border_color};
         ">
             <div style="position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5);"></div>
-            <h2 style="margin-top:10px; color: white !important; position: relative; z-index: 1; text-shadow: 0 4px 8px rgba(0,0,0,0.8); font-size: 2rem;">Discover The Breed</h2>
+            <h2 style="margin-top:10px; color: white !important; position: relative; z-index: 1; text-shadow: 0 4px 8px rgba(0,0,0,0.8); font-size: 2rem;">{T("Discover The Breed", lang_code)}</h2>
         </div>
         """, unsafe_allow_html=True)
 
 # ==============================
 # ANALYZER
 # ==============================
-elif app_mode == "Analyzer":
+elif app_mode == app_mode_options[1]:
     st.markdown(f"<h1 style='color: {text_primary}; font-size: 3.5rem; font-weight: 800; margin-bottom: 0px;'>Predict Breed</h1>", unsafe_allow_html=True)
     st.markdown(f"<p style='color: {text_secondary}; font-size: 1.1rem; margin-top: 5px; margin-bottom: 2rem;'>Upload an image, use your camera, or paste a URL to identify the breed.</p>", unsafe_allow_html=True)
 
@@ -611,13 +639,28 @@ elif app_mode == "Analyzer":
                                     st.write(f"- **{CLASS_NAMES[top_idx[j]]}**: {preds[top_idx[j]]*100:.1f}%")
                                 
                                 if label in BREED_INFO:
-                                    st.markdown("##### 🐄 Breed Details:")
+                                    st.markdown(f"##### 🐄 {T('Breed Details:', lang_code)}")
                                     info = BREED_INFO[label]
-                                    st.write(f"- **🥛 Milk Yield:** {info['Yield']}")
-                                    st.write(f"- **🧈 Fat Content:** {info['Fat']}")
-                                    st.write(f"- **📍 Origin:** {info['Origin']}")
+                                    st.write(f"- **🥛 {T('Milk Yield:', lang_code)}** {T(info['Yield'], lang_code)}")
+                                    st.write(f"- **🧈 {T('Fat Content:', lang_code)}** {T(info['Fat'], lang_code)}")
+                                    st.write(f"- **📍 {T('Origin:', lang_code)}** {T(info['Origin'], lang_code)}")
+                                    
+                                    # Weight & Market Value Estimator
+                                    # Calculate a slight variation based on bounding box
+                                    box_width = x2 - x1
+                                    box_height = y2 - y1
+                                    aspect_ratio = box_width / (box_height + 0.0001)
+                                    # A slightly wider cow gets a small weight bump (up to 10%)
+                                    weight_modifier = min(max(aspect_ratio - 1.0, -0.1), 0.1) 
+                                    
+                                    estimated_weight = int(info['BaseWeight'] * (1 + weight_modifier))
+                                    estimated_price = int(info['BasePrice'] * (1 + weight_modifier))
+                                    
+                                    st.markdown(f"##### ⚖️ {T('Estimations:', lang_code)}")
+                                    st.write(f"- **{T('Estimated Weight:', lang_code)}** ~{estimated_weight} {T('kg', lang_code)}")
+                                    st.write(f"- **{T('Estimated Value:', lang_code)}** ~₹{estimated_price:,}")
                             elif label is None:
-                                st.error("Model file not found!")
+                                st.error(T("Model file not found!", lang_code))
 
                             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -648,31 +691,33 @@ elif app_mode == "Analyzer":
 # ==============================
 # BREED ENCYCLOPEDIA
 # ==============================
-elif app_mode == "Breed Encyclopedia":
-    st.title("📖 Breed Encyclopedia")
-    st.markdown("Explore information about the 10 Indian cattle and buffalo breeds supported by our AI.")
-    selected_breed = st.selectbox("Select a Breed to explore:", CLASS_NAMES)
+elif app_mode == app_mode_options[2]:
+    st.title(f"📖 {T('Breed Encyclopedia', lang_code)}")
+    st.markdown(T("Explore information about the 10 Indian cattle and buffalo breeds supported by our AI.", lang_code))
+    selected_breed = st.selectbox(T("Select a Breed to explore:", lang_code), CLASS_NAMES)
     
     if selected_breed in BREED_INFO:
         info = BREED_INFO[selected_breed]
-        st.markdown(f"## {selected_breed}")
+        st.markdown(f"## {T(selected_breed, lang_code)}")
         st.markdown(
             f"""
             <div style="background-color:rgba(30, 64, 175, 0.1); padding:20px; border-radius:10px; border-left: 5px solid #1e40af; margin-bottom: 20px;">
-                <h3 style="color:#1e40af; margin-top:0;">{info['Type']}</h3>
-                <p><strong>📍 Origin:</strong> {info['Origin']}</p>
-                <p><strong>🥛 Avg. Milk Yield:</strong> {info['Yield']}</p>
-                <p><strong>🧈 Fat Content:</strong> {info['Fat']}</p>
-                <p><strong>📝 Description:</strong> {info['Desc']}</p>
+                <h3 style="color:#1e40af; margin-top:0;">{T(info['Type'], lang_code)}</h3>
+                <p><strong>📍 {T('Origin:', lang_code)}</strong> {T(info['Origin'], lang_code)}</p>
+                <p><strong>🥛 {T('Avg. Milk Yield:', lang_code)}</strong> {T(info['Yield'], lang_code)}</p>
+                <p><strong>🧈 {T('Fat Content:', lang_code)}</strong> {T(info['Fat'], lang_code)}</p>
+                <p><strong>⚖️ {T('Base Weight:', lang_code)}</strong> ~{info['BaseWeight']} {T('kg', lang_code)}</p>
+                <p><strong>💰 {T('Market Value:', lang_code)}</strong> ~₹{info['BasePrice']:,}</p>
+                <p><strong>📝 {T('Description:', lang_code)}</strong> {T(info['Desc'], lang_code)}</p>
             </div>
             """, unsafe_allow_html=True
         )
-        st.info("💡 **Tip:** Use the 'Analyzer' tab to upload an image and let AI identify it!")
+        st.info(f"💡 **{T('Tip:', lang_code)}** {T('Use the Analyzer tab to upload an image and let AI identify it!', lang_code)}")
 
 # ==============================
 # LEARNING LAB
 # ==============================
-elif app_mode == "Learning Lab":
+elif app_mode == app_mode_options[3]:
     st.title("🧪 Learning Lab")
     images = os.listdir("flagged_for_learning")
 
@@ -707,7 +752,7 @@ elif app_mode == "Learning Lab":
 # ==============================
 # ABOUT PROJECT
 # ==============================
-elif app_mode == "About Project":
+elif app_mode == app_mode_options[4]:
     st.markdown(f"<h1 style='color: {text_primary}; font-size: 3rem; font-weight: 800; margin-bottom: 0px;'>ℹ️ About the Project</h1>", unsafe_allow_html=True)
     st.markdown(f"<p style='color: {text_secondary}; font-size: 1.1rem; margin-top: 5px; margin-bottom: 2rem;'>An AI-powered cattle breed classification system for Indian indigenous breeds.</p>", unsafe_allow_html=True)
     
