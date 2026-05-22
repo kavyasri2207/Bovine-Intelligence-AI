@@ -1,19 +1,20 @@
 import streamlit as st
 st.set_page_config(layout="wide", page_title="Bovine Intelligence System")
 
+# Import PyTorch/Ultralytics BEFORE TensorFlow to prevent Segmentation Faults
+from ultralytics import YOLO
+import cv2
+import numpy as np
+import os
+import time
+from PIL import Image, ImageEnhance
+
 try:
     import tensorflow as tf
     from tensorflow.keras.preprocessing import image
     HAS_TF = True
 except ImportError:
     HAS_TF = False
-
-import cv2
-import numpy as np
-import os
-import time
-from PIL import Image, ImageEnhance
-from ultralytics import YOLO
 import csv
 import io
 import base64
